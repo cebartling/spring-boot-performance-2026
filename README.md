@@ -82,26 +82,16 @@ This single configuration transforms Spring MVC to use virtual threads for reque
 
 ### Architecture Overview
 
-```
-┌─────────────────────────────────────┐
-│   PostgreSQL 18 Database            │
-│   (Shared Infrastructure)           │
-└─────────────────────────────────────┘
-                 │
-        ┌────────┴────────┐
-        │                 │
-        ▼                 ▼
-┌──────────────┐  ┌──────────────┐
-│ WebFlux App  │  │  MVC App     │
-│ (Port 8080)  │  │ (Port 8081)  │
-├──────────────┤  ├──────────────┤
-│ Spring Boot  │  │ Spring Boot  │
-│ 4.0.2        │  │ 4.0.2        │
-│              │  │              │
-│ R2DBC        │  │ JDBC         │
-│ Reactive     │  │ Virtual      │
-│ Drivers      │  │ Threads      │
-└──────────────┘  └──────────────┘
+```mermaid
+graph TB
+    DB[(PostgreSQL 18<br/>Database<br/>Shared Infrastructure)]
+
+    DB --> WebFlux[WebFlux App<br/>Port 8080<br/>━━━━━━━━━━━━<br/>Spring Boot 4.0.2<br/><br/>R2DBC<br/>Reactive Drivers]
+    DB --> MVC[MVC App<br/>Port 8081<br/>━━━━━━━━━━━━<br/>Spring Boot 4.0.2<br/><br/>JDBC<br/>Virtual Threads]
+
+    style DB fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    style WebFlux fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style MVC fill:#fff3e0,stroke:#e65100,stroke-width:2px
 ```
 
 ### Application Specifications
@@ -302,29 +292,23 @@ Both applications can run concurrently on different ports (8080 and 8081), conne
 
 The project includes comprehensive performance testing and observability infrastructure:
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    K6 Load Generator                     │
-│              (Multiple test scenarios)                   │
-└──────────────┬──────────────────────┬───────────────────┘
-               │                      │
-               ▼                      ▼
-      ┌─────────────────┐    ┌─────────────────┐
-      │  WebFlux App    │    │   MVC App       │
-      │  Port 8080      │    │   Port 8081     │
-      │  /actuator/*    │    │   /actuator/*   │
-      └────────┬────────┘    └────────┬────────┘
-               │                      │
-               │    ┌────────────────┐│
-               └───→│   Prometheus   ││
-                    │   Port 9090    │◄┘
-                    └────────┬───────┘
-                             │
-                             ▼
-                    ┌────────────────┐
-                    │    Grafana     │
-                    │    Port 3000   │
-                    └────────────────┘
+```mermaid
+graph TB
+    K6[K6 Load Generator<br/>Multiple test scenarios]
+
+    K6 --> WebFlux[WebFlux App<br/>Port 8080<br/>/actuator/*]
+    K6 --> MVC[MVC App<br/>Port 8081<br/>/actuator/*]
+
+    WebFlux --> Prometheus[Prometheus<br/>Port 9090]
+    MVC --> Prometheus
+
+    Prometheus --> Grafana[Grafana<br/>Port 3000]
+
+    style K6 fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style WebFlux fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style MVC fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style Prometheus fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style Grafana fill:#fff9c4,stroke:#f57f17,stroke-width:2px
 ```
 
 ### Monitoring Stack
