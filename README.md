@@ -348,17 +348,21 @@ jvm_threads_live{application=~"reactive-webflux|non-reactive-mvc"}
 ```
 
 #### Grafana
-Pre-configured dashboards for performance comparison.
+Pre-configured dashboards for performance analysis.
 
 **Access:** http://localhost:3000 (admin/admin)
 
+**Available Dashboards:**
+- **Spring WebFlux Performance** (http://localhost:3000/d/webflux-perf) - Metrics for reactive-webflux application only
+- **Spring MVC Performance (Virtual Threads)** (http://localhost:3000/d/mvc-perf) - Metrics for non-reactive-mvc application only
+
 **Dashboard Layout:**
 
-The dashboard is organized with summary stat panels at the top for at-a-glance comparison, followed by detailed timeseries graphs.
+Each dashboard is organized with summary stat panels at the top for at-a-glance metrics, followed by detailed timeseries graphs. Both dashboards have identical layouts, showing metrics for their respective application.
 
-**Row 1-2: Summary Stat Panels** (Side-by-side WebFlux vs MVC comparison)
+**Row 1-2: Summary Stat Panels**
 - **P95 Response Time** - 95th percentile latency with color-coded thresholds (green < 500ms, yellow < 1s, red ≥ 1s)
-- **Avg Thread Count** - Mean thread count over selected time window
+- **Avg Thread Count** - Mean thread count over selected time window (WebFlux: ~10-50 threads, MVC: higher due to virtual threads)
 - **Avg Memory Usage** - Mean heap memory consumption with percentage-based thresholds
 - **Avg CPU Usage** - Mean CPU utilization (green < 50%, yellow < 80%, red ≥ 80%)
 - **Avg Request Rate** - Mean requests per second
@@ -366,10 +370,10 @@ The dashboard is organized with summary stat panels at the top for at-a-glance c
 - **Avg Response Time (Mean)** - Mean response time (not just P95)
 - **Application Uptime** - Current uptime in hours
 - **Avg GC Pause Time** - Mean garbage collection pause duration
-- **Avg DB Connection Pool** - Mean active database connections (R2DBC for WebFlux, HikariCP for MVC)
+- **DB Connection Pool** - Mean active database connections (R2DBC for WebFlux, HikariCP for MVC)
 
 **Rows 3-7: Timeseries Graphs** (Detailed over time)
-- **Request Rate Comparison** - Line chart showing req/s trends
+- **Request Rate** - Line chart showing req/s trends
 - **Response Time (Avg & Max)** - Line chart comparing average and maximum response times
 - **JVM Heap Memory Usage** - Line chart showing heap memory over time
 - **CPU Usage** - Line chart comparing process and system CPU usage
@@ -380,8 +384,9 @@ The dashboard is organized with summary stat panels at the top for at-a-glance c
 - Color-coded thresholds provide immediate visual feedback on performance (green/yellow/red)
 - Sparklines in stat panels show trend direction
 - True P95 calculation using histogram buckets (pre-configured in both applications)
-- Side-by-side comparison of WebFlux vs MVC for every metric
+- URI filter variable allows filtering by specific API endpoints (/api/customers, /api/orders, etc.)
 - Real-time updates during load tests (Prometheus scrapes every 5 seconds)
+- Tests are run sequentially (not simultaneously), so use separate dashboards for clearer analysis
 
 **Configuration:**
 Both applications are pre-configured with histogram metrics for accurate percentile calculations:
@@ -451,10 +456,12 @@ This script runs all scenarios against both applications sequentially with 30-se
 **Viewing Results:**
 
 While tests are running:
-- **Grafana Dashboard**: http://localhost:3000/d/spring-boot-perf
+- **Grafana Dashboards**:
+  - WebFlux: http://localhost:3000/d/webflux-perf
+  - MVC: http://localhost:3000/d/mvc-perf
   - Watch real-time metrics update
-  - Compare WebFlux vs MVC side-by-side
   - Stat panels show 5-minute rolling averages
+  - Use URI filter to focus on specific endpoints
 - **Console Output**: K6 displays live progress and summary statistics
 - **Prometheus**: http://localhost:9090 (query raw metrics)
 
@@ -527,22 +534,23 @@ docker-compose down -v
    curl http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job: .labels.job, health: .health}'
    ```
 
-3. **Open Grafana dashboard:**
+3. **Open Grafana dashboards:**
    - Navigate to http://localhost:3000
    - Login automatically (anonymous access enabled with Admin role)
-   - Dashboard URL: http://localhost:3000/d/spring-boot-perf
-   - Or navigate to "Spring Boot Performance Comparison" from dashboards menu
+   - WebFlux Dashboard: http://localhost:3000/d/webflux-perf
+   - MVC Dashboard: http://localhost:3000/d/mvc-perf
+   - Or navigate to dashboards from the Grafana menu
 
-4. **Run baseline tests for comparison:**
+4. **Run baseline tests:**
    ```bash
    cd k6
 
-   # Test WebFlux (watch Grafana dashboard during execution)
+   # Test WebFlux (open WebFlux dashboard in Grafana to watch real-time metrics)
    ./run-single-test.sh webflux baseline
 
    # Wait 1-2 minutes for cooldown
 
-   # Test MVC (compare metrics in Grafana)
+   # Test MVC (switch to MVC dashboard in Grafana)
    ./run-single-test.sh mvc baseline
    ```
 
@@ -561,20 +569,22 @@ docker-compose down -v
    ```
 
 6. **Analyze results in Grafana:**
-   - **Stat Panels (Top)**: Quick at-a-glance comparison
+   - **Stat Panels (Top)**: Quick at-a-glance metrics for each application
      - P95 Response Time (green < 500ms, yellow < 1s, red ≥ 1s)
-     - Average Thread Count (note: MVC will show more due to virtual threads)
+     - Average Thread Count (WebFlux: ~10-50, MVC: higher due to virtual threads)
      - Average Memory Usage (heap consumption)
      - Average CPU Usage (green < 50%, yellow < 80%, red ≥ 80%)
      - Request Rate, Error Rate, GC Pause Time, DB Connections
    - **Time-Series Graphs (Bottom)**: Detailed trends over time
      - Watch for performance degradation under load
-     - Compare resource utilization patterns
-     - Identify bottlenecks
+     - Identify resource utilization patterns
+     - Detect bottlenecks
+   - **URI Filter Variable**: Use dropdown to filter by specific endpoints or view all
 
 7. **Compare WebFlux vs MVC:**
-   - Each stat panel shows side-by-side values
+   - Open both dashboards in separate browser tabs
    - Use time range selector to focus on specific test periods
+   - Take note of metrics during identical test scenarios
    - Export panel data or screenshots for documentation
 
 8. **Export findings:**
@@ -607,7 +617,9 @@ docker-compose down -v
 ### Quick Reference
 
 **Essential URLs:**
-- Grafana Dashboard: http://localhost:3000/d/spring-boot-perf
+- Grafana Dashboards:
+  - WebFlux Dashboard: http://localhost:3000/d/webflux-perf
+  - MVC Dashboard: http://localhost:3000/d/mvc-perf
 - Prometheus: http://localhost:9090
 - WebFlux API: http://localhost:8080/api/customers
 - MVC API: http://localhost:8081/api/customers
