@@ -1,0 +1,12 @@
+spring:
+  threads:
+    virtual:
+      enabled: true
+  sql:
+    init:
+      mode: never
+
+logging:
+  level:
+    org.springframework.jdbc: DEBUG
+    org.testcontainers: INFO

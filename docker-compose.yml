@@ -1,0 +1,136 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: spring-boot-performance-2026-postgres
+    environment:
+      POSTGRES_DB: springboot
+      POSTGRES_USER: springboot
+      POSTGRES_PASSWORD: springboot
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U springboot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  vault:
+    image: hashicorp/vault:latest
+    container_name: spring-boot-performance-2026-vault
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: root
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    ports:
+      - "8200:8200"
+    volumes:
+      - vault_data:/vault/file
+      - vault_logs:/vault/logs
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - app-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: spring-boot-performance-prometheus
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+    ports:
+      - "9090:9090"
+    networks:
+      - app-network
+    depends_on:
+      - reactive-webflux
+      - non-reactive-mvc
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: spring-boot-performance-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION=false
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_BASIC_ENABLED=true
+      - GF_AUTH_DISABLE_LOGIN_FORM=false
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - app-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  reactive-webflux:
+    build:
+      context: ./reactive-webflux
+      dockerfile: Dockerfile
+    container_name: spring-boot-performance-webflux
+    environment:
+      - SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/springboot
+      - SPRING_R2DBC_USERNAME=springboot
+      - SPRING_R2DBC_PASSWORD=springboot
+    ports:
+      - "8080:8080"
+    networks:
+      - app-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  non-reactive-mvc:
+    build:
+      context: ./non-reactive-mvc
+      dockerfile: Dockerfile
+    container_name: spring-boot-performance-mvc
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/springboot
+      - SPRING_DATASOURCE_USERNAME=springboot
+      - SPRING_DATASOURCE_PASSWORD=springboot
+    ports:
+      - "8081:8081"
+    networks:
+      - app-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  vault_data:
+    driver: local
+  vault_logs:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge

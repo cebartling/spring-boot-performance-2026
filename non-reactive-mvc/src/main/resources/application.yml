@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: non-reactive-mvc
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: jdbc:postgresql://localhost:5432/springboot
+    username: springboot
+    password: springboot
+    driver-class-name: org.postgresql.Driver
+  sql:
+    init:
+      mode: always
+
+server:
+  port: 8081
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+    export:
+      prometheus:
+        enabled: true
+  observations:
+    key-values:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    org.springframework.jdbc: DEBUG

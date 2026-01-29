@@ -1,0 +1,26 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+  external_labels:
+    monitor: 'spring-boot-performance-comparison'
+
+scrape_configs:
+  - job_name: 'webflux-app'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['reactive-webflux:8080']
+        labels:
+          application: 'reactive-webflux'
+          stack: 'webflux'
+
+  - job_name: 'mvc-app'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['non-reactive-mvc:8081']
+        labels:
+          application: 'non-reactive-mvc'
+          stack: 'mvc'
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
