@@ -352,24 +352,58 @@ Pre-configured dashboards for performance comparison.
 
 **Access:** http://localhost:3000 (admin/admin)
 
-**Dashboard Panels:**
-- Request Rate Comparison (WebFlux vs MVC)
-- Response Time Percentiles (P50, P95, P99)
-- JVM Heap Memory Usage
-- CPU Usage (Process and System)
-- Thread Count
-- Database Connection Pool Metrics
-- Error Rate (5xx responses)
-- Garbage Collection Statistics
+**Dashboard Layout:**
+
+The dashboard is organized with summary stat panels at the top for at-a-glance comparison, followed by detailed timeseries graphs.
+
+**Row 1-2: Summary Stat Panels** (Side-by-side WebFlux vs MVC comparison)
+- **P95 Response Time** - 95th percentile latency with color-coded thresholds (green < 500ms, yellow < 1s, red ≥ 1s)
+- **Avg Thread Count** - Mean thread count over selected time window
+- **Avg Memory Usage** - Mean heap memory consumption with percentage-based thresholds
+- **Avg CPU Usage** - Mean CPU utilization (green < 50%, yellow < 80%, red ≥ 80%)
+- **Avg Request Rate** - Mean requests per second
+- **Avg Error Rate** - Percentage of 5xx errors (green < 1%, yellow < 5%, red ≥ 5%)
+- **Avg Response Time (Mean)** - Mean response time (not just P95)
+- **Application Uptime** - Current uptime in hours
+- **Avg GC Pause Time** - Mean garbage collection pause duration
+- **Avg DB Connection Pool** - Mean active database connections (R2DBC for WebFlux, HikariCP for MVC)
+
+**Rows 3-7: Timeseries Graphs** (Detailed over time)
+- **Request Rate Comparison** - Line chart showing req/s trends
+- **Response Time (Avg & Max)** - Line chart comparing average and maximum response times
+- **JVM Heap Memory Usage** - Line chart showing heap memory over time
+- **CPU Usage** - Line chart comparing process and system CPU usage
+- **Thread Count** - Line chart showing thread count trends
+
+**Features:**
+- All stat panels use 5-minute rolling averages for consistent comparison
+- Color-coded thresholds provide immediate visual feedback on performance (green/yellow/red)
+- Sparklines in stat panels show trend direction
+- True P95 calculation using histogram buckets (pre-configured in both applications)
+- Side-by-side comparison of WebFlux vs MVC for every metric
+- Real-time updates during load tests (Prometheus scrapes every 5 seconds)
+
+**Configuration:**
+Both applications are pre-configured with histogram metrics for accurate percentile calculations:
+```yaml
+management:
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+```
+
+This enables the `http_server_requests_seconds_bucket` metric required for calculating true P95/P99 values using PromQL's `histogram_quantile()` function.
 
 ### Load Testing with K6
 
 #### Test Scenarios
 
 **1. Baseline Test** (`k6/scripts/baseline.js`)
-- Gradual ramp-up: 0 → 50 → 100 users
-- Duration: 5 minutes
-- Thresholds: P95 < 500ms, P99 < 1000ms
+- Gradual ramp-up: 0 → 50 (30s) → 50 (2m) → 100 (30s) → 100 (2m) → 0 (30s)
+- Total duration: 5 minutes 30 seconds
+- Target: `/api/customers` endpoint
+- Thresholds: P95 < 500ms, P99 < 1000ms, error rate < 1%
 
 **2. Read-Heavy Workload** (`k6/scripts/read-heavy.js`)
 - 80% reads, 20% writes
@@ -389,30 +423,45 @@ Pre-configured dashboards for performance comparison.
 
 #### Running Load Tests
 
-**Prerequisites:**
-Install K6 from [Grafana Labs](https://k6.io/docs/get-started/installation/)
+**No Installation Required** - Tests run using K6 Docker image
 
-**Single Test:**
+**Quick Single Test:**
 ```bash
-# Test WebFlux
-k6 run -e BASE_URL=http://localhost:8080 k6/scripts/baseline.js
+cd k6
 
-# Test MVC
-k6 run -e BASE_URL=http://localhost:8081 k6/scripts/baseline.js
+# Test WebFlux with baseline scenario
+./run-single-test.sh webflux baseline
+
+# Test MVC with baseline scenario
+./run-single-test.sh mvc baseline
+
+# Run other scenarios
+./run-single-test.sh webflux read-heavy
+./run-single-test.sh mvc stress-test
 ```
 
 **Full Test Suite:**
 ```bash
 cd k6
-./run-tests.sh
+./run-tests-docker.sh
 ```
 
-This script runs all scenarios against both applications and saves results to `k6/results/`.
+This script runs all scenarios against both applications sequentially with 30-second cooldown periods between tests. Results are saved to `k6/results/` as JSON files.
 
 **Viewing Results:**
-- Real-time metrics: Monitor in Grafana dashboard during test execution
-- Console output: Immediate summary statistics
-- JSON files: Detailed results in `k6/results/` directory
+
+While tests are running:
+- **Grafana Dashboard**: http://localhost:3000/d/spring-boot-perf
+  - Watch real-time metrics update
+  - Compare WebFlux vs MVC side-by-side
+  - Stat panels show 5-minute rolling averages
+- **Console Output**: K6 displays live progress and summary statistics
+- **Prometheus**: http://localhost:9090 (query raw metrics)
+
+After tests complete:
+- **K6 Summary**: Console displays final metrics (requests/sec, response times, error rates)
+- **JSON Results**: Detailed results saved in `k6/results/` directory (when using `run-tests-docker.sh`)
+- **Grafana History**: Time-series graphs show performance over the test duration
 
 ### Running the Complete Stack
 
@@ -460,50 +509,166 @@ docker-compose down -v
 
 ### Performance Testing Workflow
 
-1. **Start the stack:**
+1. **Start the complete stack:**
    ```bash
    docker-compose up -d
    ```
 
-2. **Wait for applications to be ready:**
+2. **Verify all services are healthy:**
    ```bash
-   # Check health endpoints
-   curl http://localhost:8080/actuator/health
-   curl http://localhost:8081/actuator/health
+   # Check container status
+   docker-compose ps
+
+   # Verify application health
+   curl http://localhost:8080/actuator/health  # WebFlux
+   curl http://localhost:8081/actuator/health  # MVC
+
+   # Check Prometheus targets are being scraped
+   curl http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job: .labels.job, health: .health}'
    ```
 
 3. **Open Grafana dashboard:**
    - Navigate to http://localhost:3000
-   - Login with admin/admin
-   - Open "Spring Boot Performance Comparison" dashboard
+   - Login automatically (anonymous access enabled with Admin role)
+   - Dashboard URL: http://localhost:3000/d/spring-boot-perf
+   - Or navigate to "Spring Boot Performance Comparison" from dashboards menu
 
-4. **Run load tests:**
+4. **Run baseline tests for comparison:**
    ```bash
    cd k6
-   ./run-tests.sh
+
+   # Test WebFlux (watch Grafana dashboard during execution)
+   ./run-single-test.sh webflux baseline
+
+   # Wait 1-2 minutes for cooldown
+
+   # Test MVC (compare metrics in Grafana)
+   ./run-single-test.sh mvc baseline
    ```
 
-5. **Analyze results:**
-   - View real-time metrics in Grafana during tests
-   - Compare WebFlux vs MVC performance side-by-side
-   - Review JSON results in `k6/results/` directory
+5. **Run additional test scenarios (optional):**
+   ```bash
+   # Read-heavy workload
+   ./run-single-test.sh webflux read-heavy
+   ./run-single-test.sh mvc read-heavy
 
-6. **Export findings:**
-   - Screenshot Grafana panels
-   - Export data for further analysis
-   - Document observations
+   # Stress test (30 minutes per app)
+   ./run-single-test.sh webflux stress-test
+   ./run-single-test.sh mvc stress-test
+
+   # Or run all tests automatically
+   ./run-tests-docker.sh
+   ```
+
+6. **Analyze results in Grafana:**
+   - **Stat Panels (Top)**: Quick at-a-glance comparison
+     - P95 Response Time (green < 500ms, yellow < 1s, red ≥ 1s)
+     - Average Thread Count (note: MVC will show more due to virtual threads)
+     - Average Memory Usage (heap consumption)
+     - Average CPU Usage (green < 50%, yellow < 80%, red ≥ 80%)
+     - Request Rate, Error Rate, GC Pause Time, DB Connections
+   - **Time-Series Graphs (Bottom)**: Detailed trends over time
+     - Watch for performance degradation under load
+     - Compare resource utilization patterns
+     - Identify bottlenecks
+
+7. **Compare WebFlux vs MVC:**
+   - Each stat panel shows side-by-side values
+   - Use time range selector to focus on specific test periods
+   - Export panel data or screenshots for documentation
+
+8. **Export findings:**
+   ```bash
+   # K6 results (if using run-tests-docker.sh)
+   ls -lh k6/results/
+
+   # Grafana screenshots (via browser)
+   # - Click panel title → Share → Link
+   # - Or use browser screenshot tools
+   ```
 
 ### Key Metrics to Compare
 
-| Metric | WebFlux | MVC | Goal |
-|--------|---------|-----|------|
-| Throughput (req/s) | - | - | MVC ≥ 95% of WebFlux |
-| P95 Latency | - | - | Comparable or better |
-| P99 Latency | - | - | Comparable or better |
-| Memory Usage | - | - | Similar or less |
-| Thread Count | ~10-20 | Thousands (virtual) | Both efficient |
-| CPU Usage | - | - | Similar or less |
-| Error Rate | - | - | < 1% |
+| Metric | Dashboard Panel | WebFlux Expected | MVC Expected | Goal |
+|--------|----------------|------------------|--------------|------|
+| **Throughput** | Avg Request Rate | - | - | MVC ≥ 95% of WebFlux |
+| **P95 Latency** | P95 Response Time | - | - | Comparable or better |
+| **Avg Latency** | Avg Response Time (Mean) | - | - | Comparable or better |
+| **Memory Usage** | Avg Memory Usage | Lower | Higher | Similar heap consumption |
+| **Thread Count** | Avg Thread Count | ~10-50 | Higher (virtual) | Both efficient despite count difference |
+| **CPU Usage** | Avg CPU Usage | - | - | Similar or less |
+| **Error Rate** | Avg Error Rate | - | - | < 1% for both |
+| **GC Pause** | Avg GC Pause Time | - | - | < 10ms preferred |
+| **DB Connections** | Avg DB Connection Pool | R2DBC pool | HikariCP pool | Efficient connection usage |
+| **Uptime** | Application Uptime | - | - | Both stable during tests |
+
+**Note**: All stat panels show 5-minute rolling averages and update in real-time during load tests.
+
+### Quick Reference
+
+**Essential URLs:**
+- Grafana Dashboard: http://localhost:3000/d/spring-boot-perf
+- Prometheus: http://localhost:9090
+- WebFlux API: http://localhost:8080/api/customers
+- MVC API: http://localhost:8081/api/customers
+- WebFlux Actuator: http://localhost:8080/actuator
+- MVC Actuator: http://localhost:8081/actuator
+
+**Common Commands:**
+```bash
+# Start all services
+docker-compose up -d
+
+# Check service status
+docker-compose ps
+
+# View application logs
+docker-compose logs -f webflux
+docker-compose logs -f mvc
+
+# Restart a service
+docker-compose restart grafana
+
+# Stop all services
+docker-compose down
+
+# Clean up everything including volumes
+docker-compose down -v
+
+# Run a quick test
+cd k6 && ./run-single-test.sh webflux baseline
+
+# Generate manual traffic
+for i in {1..100}; do curl -s http://localhost:8080/api/customers > /dev/null; done
+```
+
+### Troubleshooting
+
+**Dashboard shows "No Data":**
+- Verify applications are running: `docker-compose ps`
+- Check Prometheus is scraping: http://localhost:9090/targets
+- Generate some traffic: `curl http://localhost:8080/api/customers`
+- Wait 10-15 seconds for metrics to appear
+
+**K6 test fails to connect:**
+- Ensure applications are healthy: `curl http://localhost:8080/actuator/health`
+- Check Docker can reach host: `docker run --rm alpine ping -c 1 host.docker.internal`
+- Verify ports are accessible: `netstat -an | grep "8080\|8081"`
+
+**Grafana dashboard not updating:**
+- Refresh the page
+- Check time range selector (use "Last 15 minutes" during active tests)
+- Verify Prometheus is receiving metrics: http://localhost:9090/graph
+
+**High error rates during tests:**
+- Check application logs: `docker-compose logs webflux` or `docker-compose logs mvc`
+- Verify database is healthy: `docker-compose logs postgres`
+- Reduce load by using baseline test instead of stress test
+
+**Memory or CPU at 100%:**
+- This is expected during stress tests to find limits
+- Use baseline or read-heavy tests for normal comparison
+- Allow cooldown time between tests
 
 ## Future Work
 
