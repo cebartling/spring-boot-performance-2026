@@ -43,7 +43,7 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
-    container_name: spring-boot-performance-prometheus
+    container_name: spring-boot-performance-2026-prometheus
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
@@ -62,7 +62,7 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    container_name: spring-boot-performance-grafana
+    container_name: spring-boot-performance-2026-grafana
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
@@ -87,7 +87,7 @@ services:
     build:
       context: ./reactive-webflux
       dockerfile: Dockerfile
-    container_name: spring-boot-performance-webflux
+    container_name: spring-boot-performance-2026-webflux
     environment:
       - SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/springboot
       - SPRING_R2DBC_USERNAME=springboot
@@ -105,7 +105,7 @@ services:
     build:
       context: ./non-reactive-mvc
       dockerfile: Dockerfile
-    container_name: spring-boot-performance-mvc
+    container_name: spring-boot-performance-2026-mvc
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/springboot
       - SPRING_DATASOURCE_USERNAME=springboot

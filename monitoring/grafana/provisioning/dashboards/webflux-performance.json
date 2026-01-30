@@ -181,8 +181,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "avg_over_time(jvm_memory_used_bytes{application=\"reactive-webflux\",area=\"heap\"}[5m])",
-          "legendFormat": "Heap Memory",
+          "expr": "sum(avg_over_time(jvm_memory_used_bytes{application=\"reactive-webflux\",area=\"heap\"}[5m]))",
+          "legendFormat": "Total Heap",
           "refId": "A"
         }
       ],
@@ -869,7 +869,7 @@
             "uid": "prometheus"
           },
           "expr": "jvm_memory_used_bytes{application=\"reactive-webflux\",area=\"heap\"}",
-          "legendFormat": "Used - {{id}}",
+          "legendFormat": "{{id}}",
           "refId": "A"
         }
       ],
