@@ -1,0 +1,17 @@
+# Python virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Test results output files (at root level only)
+/*.md
+/*.csv
+!README.md
+!METRICS_EXTRACTION.md
+
+# But allow results directory
+!results/

@@ -55,6 +55,70 @@ View real-time metrics during tests:
 - **Grafana Dashboard**: http://localhost:3000/d/spring-boot-perf
 - **Prometheus**: http://localhost:9090
 
+## Extracting Metrics for Documentation
+
+After running tests, extract performance metrics from Prometheus in blog-friendly formats:
+
+### Setup (one-time)
+
+```bash
+# Create virtual environment and install dependencies
+cd k6
+python3 -m venv .venv
+.venv/bin/pip install requests
+```
+
+### Usage
+
+```bash
+# Extract metrics from last 6 minutes (typical test duration)
+./extract-metrics.sh --app webflux --duration 6m --format markdown
+
+# Extract with specific time range
+./extract-metrics.sh --app mvc --start "2026-01-30T14:00:00Z" --end "2026-01-30T14:06:00Z" --format json
+
+# Compare both applications side-by-side
+./extract-metrics.sh --compare --duration 6m --format markdown
+
+# Save to file
+./extract-metrics.sh --app webflux --duration 6m --format markdown --output webflux-baseline.md
+```
+
+### Available Formats
+
+- **markdown** - Blog-ready Markdown table (default)
+- **json** - Structured JSON for programmatic use
+- **csv** - CSV for spreadsheet analysis
+
+### Example Workflow
+
+```bash
+# Start monitoring stack
+docker-compose up -d
+
+# Run a test
+./run-single-test.sh webflux baseline
+
+# Extract metrics immediately after (queries last 6 minutes)
+./extract-metrics.sh --app webflux --duration 6m --format markdown --output results/webflux-baseline.md
+
+# View the results
+cat results/webflux-baseline.md
+```
+
+### Extracted Metrics
+
+- P95 Response Time
+- Mean Response Time
+- Request Rate
+- Error Rate
+- Thread Count
+- Heap Memory Usage
+- CPU Usage
+- GC Pause Time
+- Database Connections (R2DBC for WebFlux, HikariCP for MVC)
+- Application Uptime
+
 ## Examples
 
 ```bash
