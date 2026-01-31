@@ -12,6 +12,16 @@ spring:
   sql:
     init:
       mode: always
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
+      acks: 1
+      retries: 3
+      properties:
+        schema.registry.url: ${SCHEMA_REGISTRY_URL:http://localhost:8085}
+        max.in.flight.requests.per.connection: 5
 
 server:
   port: 8081
@@ -43,6 +53,20 @@ management:
   observations:
     key-values:
       application: ${spring.application.name}
+
+app:
+  kafka:
+    enabled: ${KAFKA_ENABLED:true}
+    topics:
+      customer-created: customer.created
+      customer-updated: customer.updated
+      customer-deleted: customer.deleted
+      order-created: order.created
+      order-updated: order.updated
+      order-deleted: order.deleted
+      order-item-created: order-item.created
+      order-item-updated: order-item.updated
+      order-item-deleted: order-item.deleted
 
 logging:
   level:

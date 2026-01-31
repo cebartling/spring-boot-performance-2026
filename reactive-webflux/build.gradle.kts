@@ -5,6 +5,7 @@ plugins {
     id("io.spring.dependency-management") version "1.1.7"
     kotlin("jvm") version "2.2.0"
     kotlin("plugin.spring") version "2.2.0"
+    id("com.github.davidmc24.gradle.plugin.avro") version "1.9.1"
 }
 
 group = "com.pintailconsultingllc"
@@ -18,6 +19,7 @@ java {
 
 repositories {
     mavenCentral()
+    maven { url = uri("https://packages.confluent.io/maven/") }
 }
 
 dependencyManagement {
@@ -35,6 +37,12 @@ dependencies {
     implementation("io.projectreactor.kotlin:reactor-kotlin-extensions")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
+
+    // Kafka and Avro
+    implementation("io.projectreactor.kafka:reactor-kafka:1.3.25")
+    implementation("org.springframework.kafka:spring-kafka")
+    implementation("io.confluent:kafka-avro-serializer:7.6.0")
+    implementation("org.apache.avro:avro:1.11.3")
 
     runtimeOnly("org.postgresql:r2dbc-postgresql")
 
@@ -56,4 +64,13 @@ kotlin {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+avro {
+    isCreateSetters.set(false)
+    isGettersReturnOptional.set(false)
+    fieldVisibility.set("PRIVATE")
+    outputCharacterEncoding.set("UTF-8")
+    stringType.set("String")
+    isEnableDecimalLogicalType.set(true)
 }

@@ -1,0 +1,60 @@
+{
+  "type": "record",
+  "name": "OrderItemUpdatedEvent",
+  "namespace": "com.pintailconsultingllc.reactivewebflux.events",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string",
+      "doc": "Unique identifier for this event"
+    },
+    {
+      "name": "eventType",
+      "type": "string",
+      "default": "ORDER_ITEM_UPDATED",
+      "doc": "Type of event"
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "Event timestamp in milliseconds since epoch"
+    },
+    {
+      "name": "orderItemId",
+      "type": "string",
+      "doc": "UUID of the order item"
+    },
+    {
+      "name": "orderId",
+      "type": "string",
+      "doc": "UUID of the order this item belongs to"
+    },
+    {
+      "name": "productName",
+      "type": "string",
+      "doc": "Name of the product"
+    },
+    {
+      "name": "quantity",
+      "type": "int",
+      "doc": "Quantity ordered"
+    },
+    {
+      "name": "price",
+      "type": "string",
+      "doc": "Item price (stored as string to preserve precision)"
+    },
+    {
+      "name": "updatedAt",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "Order item update timestamp"
+    },
+    {
+      "name": "metadata",
+      "type": "com.pintailconsultingllc.reactivewebflux.events.EventMetadata",
+      "doc": "Event metadata"
+    }
+  ]
+}

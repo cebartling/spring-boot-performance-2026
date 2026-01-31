@@ -4,7 +4,9 @@ import com.pintailconsultingllc.reactivewebflux.domain.Order
 import com.pintailconsultingllc.reactivewebflux.domain.OrderItem
 import com.pintailconsultingllc.reactivewebflux.dto.CreateOrderRequest
 import com.pintailconsultingllc.reactivewebflux.dto.OrderDto
+import com.pintailconsultingllc.reactivewebflux.dto.UpdateOrderRequest
 import com.pintailconsultingllc.reactivewebflux.exception.ResourceNotFoundException
+import com.pintailconsultingllc.reactivewebflux.messaging.EventPublisher
 import com.pintailconsultingllc.reactivewebflux.repository.CustomerRepository
 import com.pintailconsultingllc.reactivewebflux.repository.OrderItemRepository
 import com.pintailconsultingllc.reactivewebflux.repository.OrderRepository
@@ -19,7 +21,8 @@ import java.util.UUID
 class OrderService(
     private val orderRepository: OrderRepository,
     private val orderItemRepository: OrderItemRepository,
-    private val customerRepository: CustomerRepository
+    private val customerRepository: CustomerRepository,
+    private val eventPublisher: EventPublisher
 ) {
 
     fun getOrderById(id: UUID): Mono<OrderDto> {
@@ -64,8 +67,27 @@ class OrderService(
                     }
 
                     orderItemRepository.saveAll(items).collectList()
-                        .map { savedItems -> OrderDto.from(savedOrder, customer, savedItems) }
+                        .flatMap { savedItems ->
+                            eventPublisher.publishOrderCreated(savedOrder)
+                                .thenReturn(OrderDto.from(savedOrder, customer, savedItems))
+                        }
                 }
+            }
+    }
+
+    fun updateOrder(id: UUID, request: UpdateOrderRequest): Mono<Order> {
+        return orderRepository.findById(id)
+            .switchIfEmpty(Mono.error(ResourceNotFoundException("Order not found with id: $id")))
+            .flatMap { existing ->
+                val updated = existing.copy(
+                    totalAmount = request.totalAmount,
+                    status = request.status
+                )
+                orderRepository.save(updated)
+            }
+            .flatMap { updatedOrder ->
+                eventPublisher.publishOrderUpdated(updatedOrder)
+                    .thenReturn(updatedOrder)
             }
     }
 
@@ -77,6 +99,7 @@ class OrderService(
                     .flatMap { items ->
                         orderItemRepository.deleteAll(items)
                             .then(orderRepository.delete(order))
+                            .then(eventPublisher.publishOrderDeleted(id))
                     }
             }
     }

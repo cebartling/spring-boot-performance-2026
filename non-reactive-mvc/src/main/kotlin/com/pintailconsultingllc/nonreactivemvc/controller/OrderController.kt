@@ -3,6 +3,7 @@ package com.pintailconsultingllc.nonreactivemvc.controller
 import com.pintailconsultingllc.nonreactivemvc.domain.Order
 import com.pintailconsultingllc.nonreactivemvc.dto.CreateOrderRequest
 import com.pintailconsultingllc.nonreactivemvc.dto.OrderDto
+import com.pintailconsultingllc.nonreactivemvc.dto.UpdateOrderRequest
 import com.pintailconsultingllc.nonreactivemvc.service.OrderService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -29,6 +30,14 @@ class OrderController(
     @ResponseStatus(HttpStatus.CREATED)
     fun createOrder(@Valid @RequestBody request: CreateOrderRequest): OrderDto {
         return orderService.createOrder(request)
+    }
+
+    @PutMapping("/orders/{id}")
+    fun updateOrder(
+        @PathVariable id: UUID,
+        @Valid @RequestBody request: UpdateOrderRequest
+    ): Order {
+        return orderService.updateOrder(id, request)
     }
 
     @DeleteMapping("/orders/{id}")

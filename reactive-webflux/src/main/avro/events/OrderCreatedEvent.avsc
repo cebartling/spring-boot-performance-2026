@@ -1,0 +1,55 @@
+{
+  "type": "record",
+  "name": "OrderCreatedEvent",
+  "namespace": "com.pintailconsultingllc.reactivewebflux.events",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string",
+      "doc": "Unique identifier for this event"
+    },
+    {
+      "name": "eventType",
+      "type": "string",
+      "default": "ORDER_CREATED",
+      "doc": "Type of event"
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "Event timestamp in milliseconds since epoch"
+    },
+    {
+      "name": "orderId",
+      "type": "string",
+      "doc": "UUID of the order"
+    },
+    {
+      "name": "customerId",
+      "type": "string",
+      "doc": "UUID of the customer who placed the order"
+    },
+    {
+      "name": "totalAmount",
+      "type": "string",
+      "doc": "Total order amount (stored as string to preserve precision)"
+    },
+    {
+      "name": "status",
+      "type": "string",
+      "doc": "Order status (PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED)"
+    },
+    {
+      "name": "createdAt",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "Order creation timestamp"
+    },
+    {
+      "name": "metadata",
+      "type": "com.pintailconsultingllc.reactivewebflux.events.EventMetadata",
+      "doc": "Event metadata"
+    }
+  ]
+}

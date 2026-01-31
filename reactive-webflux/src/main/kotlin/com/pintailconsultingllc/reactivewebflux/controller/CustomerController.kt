@@ -2,6 +2,7 @@ package com.pintailconsultingllc.reactivewebflux.controller
 
 import com.pintailconsultingllc.reactivewebflux.domain.Customer
 import com.pintailconsultingllc.reactivewebflux.dto.CreateCustomerRequest
+import com.pintailconsultingllc.reactivewebflux.dto.UpdateCustomerRequest
 import com.pintailconsultingllc.reactivewebflux.service.CustomerService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -30,6 +31,14 @@ class CustomerController(
     @ResponseStatus(HttpStatus.CREATED)
     fun createCustomer(@Valid @RequestBody request: CreateCustomerRequest): Mono<Customer> {
         return customerService.createCustomer(request)
+    }
+
+    @PutMapping("/{id}")
+    fun updateCustomer(
+        @PathVariable id: UUID,
+        @Valid @RequestBody request: UpdateCustomerRequest
+    ): Mono<Customer> {
+        return customerService.updateCustomer(id, request)
     }
 
     @DeleteMapping("/{id}")

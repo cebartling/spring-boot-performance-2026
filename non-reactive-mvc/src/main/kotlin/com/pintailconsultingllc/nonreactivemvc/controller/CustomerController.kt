@@ -2,6 +2,7 @@ package com.pintailconsultingllc.nonreactivemvc.controller
 
 import com.pintailconsultingllc.nonreactivemvc.domain.Customer
 import com.pintailconsultingllc.nonreactivemvc.dto.CreateCustomerRequest
+import com.pintailconsultingllc.nonreactivemvc.dto.UpdateCustomerRequest
 import com.pintailconsultingllc.nonreactivemvc.service.CustomerService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -28,6 +29,14 @@ class CustomerController(
     @ResponseStatus(HttpStatus.CREATED)
     fun createCustomer(@Valid @RequestBody request: CreateCustomerRequest): Customer {
         return customerService.createCustomer(request)
+    }
+
+    @PutMapping("/{id}")
+    fun updateCustomer(
+        @PathVariable id: UUID,
+        @Valid @RequestBody request: UpdateCustomerRequest
+    ): Customer {
+        return customerService.updateCustomer(id, request)
     }
 
     @DeleteMapping("/{id}")

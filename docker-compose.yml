@@ -41,6 +41,57 @@ services:
     networks:
       - app-network
 
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: spring-boot-performance-2026-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 3
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - app-network
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.0
+    container_name: spring-boot-performance-2026-schema-registry
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    ports:
+      - "8085:8081"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/subjects"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - app-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+
   prometheus:
     image: prom/prometheus:latest
     container_name: spring-boot-performance-2026-prometheus
@@ -92,12 +143,16 @@ services:
       - SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/springboot
       - SPRING_R2DBC_USERNAME=springboot
       - SPRING_R2DBC_PASSWORD=springboot
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - SCHEMA_REGISTRY_URL=http://schema-registry:8081
     ports:
       - "8080:8080"
     networks:
       - app-network
     depends_on:
       postgres:
+        condition: service_healthy
+      schema-registry:
         condition: service_healthy
     restart: unless-stopped
 
@@ -110,12 +165,16 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/springboot
       - SPRING_DATASOURCE_USERNAME=springboot
       - SPRING_DATASOURCE_PASSWORD=springboot
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - SCHEMA_REGISTRY_URL=http://schema-registry:8081
     ports:
       - "8081:8081"
     networks:
       - app-network
     depends_on:
       postgres:
+        condition: service_healthy
+      schema-registry:
         condition: service_healthy
     restart: unless-stopped
 
@@ -125,6 +184,8 @@ volumes:
   vault_data:
     driver: local
   vault_logs:
+    driver: local
+  kafka_data:
     driver: local
   prometheus_data:
     driver: local

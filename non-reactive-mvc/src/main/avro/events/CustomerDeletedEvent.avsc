@@ -1,0 +1,34 @@
+{
+  "type": "record",
+  "name": "CustomerDeletedEvent",
+  "namespace": "com.pintailconsultingllc.nonreactivemvc.events",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string",
+      "doc": "Unique identifier for this event"
+    },
+    {
+      "name": "eventType",
+      "type": "string",
+      "default": "CUSTOMER_DELETED",
+      "doc": "Type of event"
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "Event timestamp in milliseconds since epoch"
+    },
+    {
+      "name": "customerId",
+      "type": "string",
+      "doc": "UUID of the deleted customer"
+    },
+    {
+      "name": "metadata",
+      "type": "com.pintailconsultingllc.nonreactivemvc.events.EventMetadata",
+      "doc": "Event metadata"
+    }
+  ]
+}

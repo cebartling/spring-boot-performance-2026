@@ -1,0 +1,55 @@
+{
+  "type": "record",
+  "name": "OrderUpdatedEvent",
+  "namespace": "com.pintailconsultingllc.nonreactivemvc.events",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string",
+      "doc": "Unique identifier for this event"
+    },
+    {
+      "name": "eventType",
+      "type": "string",
+      "default": "ORDER_UPDATED",
+      "doc": "Type of event"
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "Event timestamp in milliseconds since epoch"
+    },
+    {
+      "name": "orderId",
+      "type": "string",
+      "doc": "UUID of the order"
+    },
+    {
+      "name": "customerId",
+      "type": "string",
+      "doc": "UUID of the customer who placed the order"
+    },
+    {
+      "name": "totalAmount",
+      "type": "string",
+      "doc": "Total order amount (stored as string to preserve precision)"
+    },
+    {
+      "name": "status",
+      "type": "string",
+      "doc": "Order status (PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED)"
+    },
+    {
+      "name": "updatedAt",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "Order update timestamp"
+    },
+    {
+      "name": "metadata",
+      "type": "com.pintailconsultingllc.nonreactivemvc.events.EventMetadata",
+      "doc": "Event metadata"
+    }
+  ]
+}

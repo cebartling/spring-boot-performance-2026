@@ -3,6 +3,7 @@ package com.pintailconsultingllc.reactivewebflux.controller
 import com.pintailconsultingllc.reactivewebflux.domain.Order
 import com.pintailconsultingllc.reactivewebflux.dto.CreateOrderRequest
 import com.pintailconsultingllc.reactivewebflux.dto.OrderDto
+import com.pintailconsultingllc.reactivewebflux.dto.UpdateOrderRequest
 import com.pintailconsultingllc.reactivewebflux.service.OrderService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -31,6 +32,14 @@ class OrderController(
     @ResponseStatus(HttpStatus.CREATED)
     fun createOrder(@Valid @RequestBody request: CreateOrderRequest): Mono<OrderDto> {
         return orderService.createOrder(request)
+    }
+
+    @PutMapping("/orders/{id}")
+    fun updateOrder(
+        @PathVariable id: UUID,
+        @Valid @RequestBody request: UpdateOrderRequest
+    ): Mono<Order> {
+        return orderService.updateOrder(id, request)
     }
 
     @DeleteMapping("/orders/{id}")

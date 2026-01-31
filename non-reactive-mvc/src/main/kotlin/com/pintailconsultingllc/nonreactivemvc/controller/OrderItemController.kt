@@ -2,6 +2,7 @@ package com.pintailconsultingllc.nonreactivemvc.controller
 
 import com.pintailconsultingllc.nonreactivemvc.domain.OrderItem
 import com.pintailconsultingllc.nonreactivemvc.dto.CreateOrderItemRequest
+import com.pintailconsultingllc.nonreactivemvc.dto.UpdateOrderItemRequest
 import com.pintailconsultingllc.nonreactivemvc.service.OrderItemService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -26,6 +27,14 @@ class OrderItemController(
         @Valid @RequestBody request: CreateOrderItemRequest
     ): OrderItem {
         return orderItemService.addItemToOrder(orderId, request)
+    }
+
+    @PutMapping("/order-items/{id}")
+    fun updateOrderItem(
+        @PathVariable id: UUID,
+        @Valid @RequestBody request: UpdateOrderItemRequest
+    ): OrderItem {
+        return orderItemService.updateOrderItem(id, request)
     }
 
     @DeleteMapping("/order-items/{id}")

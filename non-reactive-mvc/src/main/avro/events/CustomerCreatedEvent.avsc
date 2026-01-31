@@ -1,0 +1,72 @@
+{
+  "type": "record",
+  "name": "CustomerCreatedEvent",
+  "namespace": "com.pintailconsultingllc.nonreactivemvc.events",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string",
+      "doc": "Unique identifier for this event"
+    },
+    {
+      "name": "eventType",
+      "type": "string",
+      "default": "CUSTOMER_CREATED",
+      "doc": "Type of event"
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "Event timestamp in milliseconds since epoch"
+    },
+    {
+      "name": "customerId",
+      "type": "string",
+      "doc": "UUID of the customer"
+    },
+    {
+      "name": "customerName",
+      "type": "string",
+      "doc": "Customer name"
+    },
+    {
+      "name": "customerEmail",
+      "type": "string",
+      "doc": "Customer email address"
+    },
+    {
+      "name": "customerAddress",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Customer address (optional)"
+    },
+    {
+      "name": "createdAt",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "Customer creation timestamp"
+    },
+    {
+      "name": "metadata",
+      "type": {
+        "type": "record",
+        "name": "EventMetadata",
+        "fields": [
+          {
+            "name": "source",
+            "type": "string",
+            "doc": "Source application (webflux or mvc)"
+          },
+          {
+            "name": "version",
+            "type": "string",
+            "default": "1.0",
+            "doc": "Event schema version"
+          }
+        ]
+      },
+      "doc": "Event metadata"
+    }
+  ]
+}

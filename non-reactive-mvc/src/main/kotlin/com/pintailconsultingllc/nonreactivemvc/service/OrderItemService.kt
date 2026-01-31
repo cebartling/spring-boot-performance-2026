@@ -2,7 +2,9 @@ package com.pintailconsultingllc.nonreactivemvc.service
 
 import com.pintailconsultingllc.nonreactivemvc.domain.OrderItem
 import com.pintailconsultingllc.nonreactivemvc.dto.CreateOrderItemRequest
+import com.pintailconsultingllc.nonreactivemvc.dto.UpdateOrderItemRequest
 import com.pintailconsultingllc.nonreactivemvc.exception.ResourceNotFoundException
+import com.pintailconsultingllc.nonreactivemvc.messaging.EventPublisher
 import com.pintailconsultingllc.nonreactivemvc.repository.OrderItemRepository
 import com.pintailconsultingllc.nonreactivemvc.repository.OrderRepository
 import org.springframework.stereotype.Service
@@ -13,7 +15,8 @@ import java.util.UUID
 @Transactional
 class OrderItemService(
     private val orderItemRepository: OrderItemRepository,
-    private val orderRepository: OrderRepository
+    private val orderRepository: OrderRepository,
+    private val eventPublisher: EventPublisher
 ) {
 
     fun getItemsByOrderId(orderId: UUID): List<OrderItem> {
@@ -39,6 +42,20 @@ class OrderItemService(
         val newTotal = order.totalAmount.add(request.price.multiply(request.quantity.toBigDecimal()))
         orderRepository.save(order.copy(totalAmount = newTotal))
 
+        eventPublisher.publishOrderItemCreated(savedItem)
+        return savedItem
+    }
+
+    fun updateOrderItem(id: UUID, request: UpdateOrderItemRequest): OrderItem {
+        val existing = orderItemRepository.findById(id)
+            .orElseThrow { ResourceNotFoundException("Order item not found with id: $id") }
+        val updated = existing.copy(
+            productName = request.productName,
+            quantity = request.quantity,
+            price = request.price
+        )
+        val savedItem = orderItemRepository.save(updated)
+        eventPublisher.publishOrderItemUpdated(savedItem)
         return savedItem
     }
 
@@ -53,5 +70,6 @@ class OrderItemService(
         orderRepository.save(order.copy(totalAmount = newTotal))
 
         orderItemRepository.delete(item)
+        eventPublisher.publishOrderItemDeleted(id)
     }
 }

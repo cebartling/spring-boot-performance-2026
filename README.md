@@ -86,10 +86,23 @@ This single configuration transforms Spring MVC to use virtual threads for reque
 graph TB
     DB[(PostgreSQL 18<br/>Database<br/>Shared Infrastructure)]
 
-    DB --> WebFlux[WebFlux App<br/>Port 8080<br/>━━━━━━━━━━━━<br/>Spring Boot 4.0.2<br/><br/>R2DBC<br/>Reactive Drivers]
-    DB --> MVC[MVC App<br/>Port 8081<br/>━━━━━━━━━━━━<br/>Spring Boot 4.0.2<br/><br/>JDBC<br/>Virtual Threads]
+    Kafka[Kafka<br/>Port 9092<br/>━━━━━━━━━━━━<br/>KRaft Mode<br/>Event Streaming]
+
+    SR[Schema Registry<br/>Port 8085<br/>━━━━━━━━━━━━<br/>Avro Schemas]
+
+    DB --> WebFlux[WebFlux App<br/>Port 8080<br/>━━━━━━━━━━━━<br/>Spring Boot 4.0.2<br/><br/>R2DBC<br/>Reactive Drivers<br/>Reactor Kafka]
+    DB --> MVC[MVC App<br/>Port 8081<br/>━━━━━━━━━━━━<br/>Spring Boot 4.0.2<br/><br/>JDBC<br/>Virtual Threads<br/>Spring Kafka]
+
+    WebFlux --> Kafka
+    MVC --> Kafka
+
+    Kafka --> SR
+    WebFlux --> SR
+    MVC --> SR
 
     style DB fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    style Kafka fill:#fff3e0,stroke:#ff6f00,stroke-width:2px
+    style SR fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
     style WebFlux fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
     style MVC fill:#fff3e0,stroke:#e65100,stroke-width:2px
 ```
@@ -242,6 +255,157 @@ Order Items:
 - Indexes on common query fields
 - Sample data: 100 customers, 500 orders, ~1500 order items
 
+### Event-Driven Architecture with Kafka
+
+Both applications implement event publishing using Apache Kafka and Confluent Schema Registry with Avro serialization.
+
+**Infrastructure:**
+- **Apache Kafka 7.6.0**: Running in KRaft mode (no ZooKeeper dependency)
+- **Confluent Schema Registry 7.6.0**: Manages Avro schemas with backward compatibility
+- **Avro Serialization**: Binary serialization with schema evolution support
+
+**Event Topics (9 total):**
+
+Each entity operation publishes an event to a dedicated topic:
+
+| Entity | Created | Updated | Deleted |
+|--------|---------|---------|---------|
+| **Customer** | `customer.created` | `customer.updated` | `customer.deleted` |
+| **Order** | `order.created` | `order.updated` | `order.deleted` |
+| **Order Item** | `order-item.created` | `order-item.updated` | `order-item.deleted` |
+
+**Event Payload Structure:**
+
+All events follow a consistent structure with full entity data:
+
+```json
+{
+  "eventId": "uuid",
+  "eventType": "CUSTOMER_CREATED",
+  "timestamp": 1738342800000,
+  "customerId": "uuid",
+  "customerName": "...",
+  "customerEmail": "...",
+  "customerAddress": "...",
+  "createdAt": 1738342800000,
+  "metadata": {
+    "source": "reactive-webflux",
+    "version": "1.0"
+  }
+}
+```
+
+**Benefits of Full Entity Events:**
+- Consumers don't need database queries
+- Better for event sourcing patterns
+- Realistic production scenario
+- Easier debugging and auditing
+
+**Delivery Semantics:**
+
+**Best-effort delivery** with graceful degradation:
+- Database transaction completes first
+- Kafka message sent asynchronously after DB commit
+- Failures logged but don't break the request (no rollback)
+- WebFlux: Uses `Mono.onErrorResume()` for reactive error handling
+- MVC: Uses try-catch with error logging
+
+This approach:
+- ✅ Simplifies implementation
+- ✅ Measures baseline Kafka overhead for performance testing
+- ✅ Ensures requests always succeed even if Kafka is down
+- ❌ No transactional guarantee between DB and Kafka
+- ❌ Possible missed events if Kafka is unavailable
+
+**Schema Evolution:**
+
+Avro schemas support backward compatibility:
+- Each event type has its own subject in Schema Registry
+- New fields can be added without breaking consumers
+- Schema Registry validates compatibility automatically
+- Schemas are cached by producers for performance
+
+**Implementation Differences:**
+
+**WebFlux Approach:**
+- Uses `reactor-kafka` with `KafkaSender`
+- Reactive `SenderRecord` for non-blocking publishing
+- Event publishing via `.flatMap()` after DB save
+- Error handling with `.onErrorResume()`
+
+**MVC Approach:**
+- Uses `spring-kafka` with `KafkaTemplate`
+- Synchronous `send()` with async callback
+- Event publishing after DB transaction completes
+- Error handling with try-catch blocks
+
+**Configuration:**
+
+Both applications configure Kafka producers identically:
+- **Bootstrap servers**: kafka:9092 (Docker internal network)
+- **Schema Registry**: http://schema-registry:8081
+- **Key serializer**: StringSerializer
+- **Value serializer**: KafkaAvroSerializer
+- **Acks**: 1 (leader acknowledgment)
+- **Retries**: 3
+- **Max in-flight requests**: 5
+
+**Monitoring:**
+
+Grafana dashboards include Kafka-specific panels:
+- Kafka Messages Sent Rate (by topic)
+- Kafka Send Latency P95
+- Kafka Producer Errors
+
+**Performance Impact:**
+
+Expected overhead per write operation:
+- Avro serialization: ~1-5ms
+- Network round trip to Kafka: ~5-10ms (local Docker)
+- Schema Registry cache lookup: ~1ms (cached)
+- **Total additional latency**: ~10-20ms
+
+This overhead is measured during load tests to compare WebFlux vs MVC event publishing performance.
+
+**Testing Event Publishing:**
+
+Verify events are being published:
+
+```bash
+# Check topics
+docker exec spring-boot-performance-2026-kafka \
+  kafka-topics --bootstrap-server localhost:9092 --list
+
+# Check schemas
+curl http://localhost:8085/subjects | jq .
+
+# Consume events (binary Avro output)
+docker exec spring-boot-performance-2026-kafka \
+  kafka-console-consumer \
+  --bootstrap-server localhost:9092 \
+  --topic customer.created \
+  --from-beginning
+```
+
+**REST Endpoints with Event Publishing:**
+
+All write operations now publish events:
+
+Customers:
+- `POST /api/customers` → `customer.created` event
+- `PUT /api/customers/{id}` → `customer.updated` event
+- `DELETE /api/customers/{id}` → `customer.deleted` event
+
+Orders:
+- `POST /api/orders` → `order.created` event
+- `PUT /api/orders/{id}` → `order.updated` event
+- `DELETE /api/orders/{id}` → `order.deleted` event
+
+Order Items:
+- `POST /api/orders/{orderId}/items` → `order-item.created` event
+- `PUT /api/order-items/{id}` → `order-item.updated` event
+- `DELETE /api/order-items/{id}` → `order-item.deleted` event
+
 ### Running the Applications
 
 **Start Infrastructure:**
@@ -282,6 +446,9 @@ Both applications can run concurrently on different ports (8080 and 8081), conne
 - **Java**: 24
 - **Gradle**: 9.2
 - **PostgreSQL**: 18
+- **Apache Kafka**: 7.6.0 (Confluent Platform, KRaft mode)
+- **Schema Registry**: 7.6.0 (Confluent)
+- **Apache Avro**: 1.11.3
 - **HashiCorp Vault**: latest
 - **Docker**: For containerization
 - **Testcontainers**: For integration testing
@@ -296,15 +463,24 @@ The project includes comprehensive performance testing and observability infrast
 graph TB
     K6[K6 Load Generator<br/>Multiple test scenarios]
 
+    Kafka[Kafka<br/>Port 9092<br/>Event Streaming]
+    SR[Schema Registry<br/>Port 8085]
+
     K6 --> WebFlux[WebFlux App<br/>Port 8080<br/>/actuator/*]
     K6 --> MVC[MVC App<br/>Port 8081<br/>/actuator/*]
 
     WebFlux --> Prometheus[Prometheus<br/>Port 9090]
     MVC --> Prometheus
+    WebFlux --> Kafka
+    MVC --> Kafka
+    WebFlux --> SR
+    MVC --> SR
 
     Prometheus --> Grafana[Grafana<br/>Port 3000]
 
     style K6 fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style Kafka fill:#fff3e0,stroke:#ff6f00,stroke-width:2px
+    style SR fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
     style WebFlux fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
     style MVC fill:#fff3e0,stroke:#e65100,stroke-width:2px
     style Prometheus fill:#ffebee,stroke:#c62828,stroke-width:2px
@@ -372,12 +548,15 @@ Each dashboard is organized with summary stat panels at the top for at-a-glance 
 - **Avg GC Pause Time** - Mean garbage collection pause duration
 - **DB Connection Pool** - Mean active database connections (R2DBC for WebFlux, HikariCP for MVC)
 
-**Rows 3-7: Timeseries Graphs** (Detailed over time)
+**Rows 3-8: Timeseries Graphs** (Detailed over time)
 - **Request Rate** - Line chart showing req/s trends
 - **Response Time (Avg & Max)** - Line chart comparing average and maximum response times
 - **JVM Heap Memory Usage** - Line chart showing heap memory over time
 - **CPU Usage** - Line chart comparing process and system CPU usage
 - **Thread Count** - Line chart showing thread count trends
+- **Kafka Messages Sent Rate** - Line chart showing Kafka messages per second by topic
+- **Kafka Send Latency P95** - Line chart showing 95th percentile Kafka send latency
+- **Kafka Producer Errors** - Line chart showing Kafka producer error rate
 
 **Features:**
 - All stat panels use 5-minute rolling averages for consistent comparison
@@ -479,6 +658,8 @@ docker-compose up -d
 
 This starts:
 - PostgreSQL (port 5432)
+- Kafka (port 9092)
+- Schema Registry (port 8085)
 - Vault (port 8200)
 - Prometheus (port 9090)
 - Grafana (port 3000)
@@ -621,6 +802,7 @@ docker-compose down -v
   - WebFlux Dashboard: http://localhost:3000/d/webflux-perf
   - MVC Dashboard: http://localhost:3000/d/mvc-perf
 - Prometheus: http://localhost:9090
+- Schema Registry: http://localhost:8085
 - WebFlux API: http://localhost:8080/api/customers
 - MVC API: http://localhost:8081/api/customers
 - WebFlux Actuator: http://localhost:8080/actuator
