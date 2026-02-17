@@ -28,15 +28,13 @@ All infrastructure components—including PostgreSQL, Kafka, Schema Registry, Pr
 
 Load is generated using [k6](https://k6.io/), with scripted scenarios that exercise baseline traffic, read-heavy mixes, stress conditions, and traffic spikes. Tests are run sequentially against each application with cooldown periods in between to minimize cross-test interference. During each run, metrics are observed in real time via Grafana and recorded for later analysis. The experiment defines explicit success criteria, including achieving at least 95 percent of WebFlux throughput with comparable tail latency for the MVC virtual-thread implementation, while also considering qualitative factors such as operational simplicity, debuggability, and ecosystem compatibility.  
 
-Overall, the setup aims to answer a focused question with empirical evidence: whether the combination of Spring MVC and virtual threads can match the performance characteristics traditionally associated with reactive WebFlux, even when realistic database access and event-driven Kafka messaging are part of the workload, rather than relying on theoretical arguments or simplified benchmarks
-
+Overall, the setup aims to answer a focused question with empirical evidence: whether the combination of Spring MVC and virtual threads can match the performance characteristics traditionally associated with reactive WebFlux, even when realistic database access and event-driven Kafka messaging are part of the workload, rather than relying on theoretical arguments or simplified benchmarks.
 
 ## Load tests
 
-### Baseline test 
+### Baseline test
 
 Purpose: Establish fundamental performance characteristics with gradual load increase.
-
 
   Load Pattern:
   - Gradual ramp-up: 0 → 50 users (30s)
@@ -56,8 +54,7 @@ Purpose: Establish fundamental performance characteristics with gradual load inc
   Use Case: Comparing normal operating performance between WebFlux and MVC under controlled, predictable load.
 
 
-### Read-Heavy test 
-
+### Read-heavy test
 
   Purpose: Simulate realistic production traffic patterns where reads dominate writes.
 
@@ -71,10 +68,11 @@ Purpose: Establish fundamental performance characteristics with gradual load inc
 
   Targets: Customer and order endpoints (mixed operations)
 
+  Success Thresholds:
+  - P95 latency < 500ms
+  - Error rate < 1%
+
   Use Case: Evaluating performance under typical e-commerce traffic patterns where most users browse rather than transact.
-
-
-
 
 ## Results
 
@@ -106,10 +104,10 @@ Period: 5 minutes
 | CPU Usage (%)               |             4.03 |                4.76 |
 | GC Pause Time (ms)          |             2.26 |                2.65 |
 
-
-
 ## Conclusions
 
 The results of this experiment make a compelling case for the transformative impact of virtual threads on Java server-side performance. In the baseline test, Spring MVC with virtual threads didn't merely keep pace with WebFlux—it outperformed it across every measured dimension: lower P95 latency (10ms vs. 14ms), higher throughput (71.45 req/s vs. 69.26 req/s), fewer threads consumed (29 vs. 35.4), less heap memory used (55 MB vs. 67 MB), lower CPU utilization (1.71% vs. 2.18%), and shorter GC pause times (1.68ms vs. 3.03ms). Under the read-heavy mixed workload, the two approaches converged to near parity in throughput and latency, with WebFlux holding a modest advantage in memory efficiency while MVC maintained its leaner thread footprint. The takeaway is clear: virtual threads have effectively closed the performance gap that once justified the complexity of a fully reactive stack. Blocking I/O on virtual threads scales just as well as non-blocking reactive streams, and in many scenarios it scales better.
 
-What makes virtual threads truly significant is not just the benchmark numbers, but what they mean for the broader Java ecosystem. Before Project Loom, teams facing high-concurrency requirements had two choices: accept the thread-exhaustion ceiling of traditional thread-per-request models, or adopt reactive programming with all of its associated complexity—unfamiliar APIs, difficult debugging, stack traces that obscure rather than illuminate, and a steep learning curve that slows onboarding and increases the risk of subtle bugs. Virtual threads eliminate this forced tradeoff. Developers can write straightforward, imperative, sequential code using the same patterns and libraries that have powered Java applications for decades, and the runtime handles concurrency scaling transparently. Existing JDBC drivers, ORMs, logging frameworks, and testing tools all work without modification. This is the real power of virtual threads in Java 21 and beyond: they democratize high-concurrency performance, making it accessible to every Java application without demanding an architectural overhaul or a paradigm shift. For teams evaluating their server-side stack today, the evidence strongly suggests that Spring MVC on virtual threads deserves to be the default starting point, with reactive WebFlux reserved for the narrow set of use cases where streaming, backpressure, or specific non-blocking integrations genuinely demand it.
+What makes virtual threads truly significant is not just the benchmark numbers, but what they mean for the broader Java ecosystem. Before Project Loom, teams facing high-concurrency requirements had two choices: accept the thread-exhaustion ceiling of traditional thread-per-request models, or adopt reactive programming with all of its associated complexity—unfamiliar APIs, difficult debugging, stack traces that obscure rather than illuminate, and a steep learning curve that slows onboarding and increases the risk of subtle bugs. Virtual threads eliminate this forced tradeoff. Developers can write straightforward, imperative, sequential code using the same patterns and libraries that have powered Java applications for decades, and the runtime handles concurrency scaling transparently. Existing JDBC drivers, ORMs, logging frameworks, and testing tools all work without modification.
+
+This is the real power of virtual threads in Java 21 and beyond: they democratize high-concurrency performance, making it accessible to every Java application without demanding an architectural overhaul or a paradigm shift. For teams evaluating their server-side stack today, the evidence strongly suggests that Spring MVC on virtual threads deserves to be the default starting point, with reactive WebFlux reserved for the narrow set of use cases where streaming, backpressure, or specific non-blocking integrations genuinely demand it.
