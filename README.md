@@ -1,5 +1,7 @@
 # Spring Boot Performance Comparison: WebFlux vs MVC with Virtual Threads
 
+> **[Read the full blog post](documentation/BLOG.md)** — A detailed write-up of the experiment, results, and conclusions.
+
 ## Hypothesis
 
 **Spring MVC running on Virtual Threads will be at least as well performing as Spring WebFlux.**
